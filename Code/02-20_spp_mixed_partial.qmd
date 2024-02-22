@@ -42,9 +42,12 @@ summary(spp_rcbd_df)
 ```{r glimpse}
 glimpse(spp_rcbd_df)
 ```
+If anova, treatments must be factors, because we have to find the mean response variable. In the contrary, if we are to do a regression, we leave the treatments as numbers. 
+
 # c) Wrangling
 ```{r rcbd_dfw}
 spp_rcbd_dfw <- spp_rcbd_df %>%
+  rename(block = rep) %>% 
   mutate(block = factor(block),
          nrate_kgha = factor(nrate_kgha),
          krate_kgha = factor(krate_kgha) 
@@ -103,13 +106,16 @@ In the case of a split-plot RCBD, we'll have 2 random variance components coming
 
 We have 2 random variance component from the split-plot because we have 2 different sizes of experimental unit that were randomized independently, and each size has its own error term.
 
+krate in both fixed effect side of the model and random effect side. There are two errors here, one from the random and one from the fixed (whatever error is left from the random effect, is added to the residual error.)
 
 ```{r model}
 # Changing to sum-to-zero contrast
 options(contrasts = c("contr.sum", "contr.poly"))
 
 # Model fitting
-spp_rcbd_mix_mod 
+spp_rcbd_mix_mod <- lmer(data = spp_rcbd_dfw,
+                         formula = yield_kgha ~ (1|block/krate_kgha) + krate_kgha * nrate_kgha
+                         )
 
 # Summary
 summary(spp_rcbd_mix_mod)
@@ -155,7 +161,7 @@ One difference in mixed models is that the 3 first assumptions are also applied 
 
 ### Block random effects are iid ~ N(0,var_a)  
 ```{r randeff_block}
-randeff_block
+randeff_block <- ranef(spp_rcbd_mix_mod)$block
 
 randeff_block
 ```
@@ -178,7 +184,7 @@ Nothing to worry here, especially since we only have 4 points.
 
 ### Block:krate random effects are iid ~ N(0,var_b)  
 ```{r randeff_block}
-randeff_blockkrate 
+randeff_blockkrate <- ranef(spp_rcbd_mix_mod)$`krate_kgha:block`
 
 randeff_blockkrate
 ```
@@ -211,7 +217,7 @@ ggplot(spp_rcbd_mix_resid, aes(x=.fitted, y=.studresid))+
   theme_bw()
 ```
 
-- **Independence**: seems liker there is a potential pattern, but since error bands comprise 0 on the y-axis, I'm not worried.  
+- **Independence**: seems like there is a potential pattern, but since error bands comprise 0 on the y-axis, I'm not worried.  
 
 - **Variance homoscedastic**: seems constant across the x-axis.   
 
@@ -263,6 +269,7 @@ When we ask for the interaction means (like in chunk above), the emmean error is
 What happens with the emmean error if we ask for the emmean of the main effects of K and N rate separately? 
 
 ```{r k rate means}
+emmeans(spp_rcbd_mix_mod, ~krate_kgha)
 
 ```
 The SE of the whole-plot treatment factor (k rate) is **232**.
@@ -270,6 +277,7 @@ The SE of the whole-plot treatment factor (k rate) is **232**.
 What about for the split-plot treatment factor (n rate)?  
 
 ```{r n rate means }
+emmeans(spp_rcbd_mix_mod, ~nrate_kgha)
 
 ```
 It is 209.  
